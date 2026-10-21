@@ -80,3 +80,7 @@ No live Supabase project or Google credentials were supplied. Real OAuth consent
 The export workbook and full Sheets reconciliation are held in memory, suited to the initial small team. Large histories may need durable export/sync jobs. Vite reports large shared/ExcelJS chunks; ExcelJS is loaded only when exporting and chart screens are separate chunks. npm dependency auditing cannot certify the absence of all vulnerabilities, including code prebundled by upstream packages; the app generates workbooks and does not accept untrusted XLSX uploads.
 
 Local screenshots and mocks are proof of those tested UI states, not proof of real production data or service connectivity.
+
+## 21 October 2026 — SyncOra favicon
+
+Added public/favicon.svg using the existing Lucide sync mark and Blissora green tile colors, linked from index.html. Production build passed; verified valid SVG and that dist includes both the favicon asset and its HTML link. Live deployment and browser cache refresh were not checked.
