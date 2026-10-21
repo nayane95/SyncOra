@@ -4,6 +4,7 @@ import {
   parseISO,
   isValid,
   differenceInCalendarDays,
+  startOfWeek,
 } from "date-fns";
 import { z } from "zod";
 import type {
@@ -24,7 +25,11 @@ export const statuses = [
   "cancelled",
 ] as const;
 export const label = (value: string) =>
-  value.replaceAll("_", " ").replace(/^./, (s) => s.toUpperCase());
+  value === "planned"
+    ? "To do"
+    : value === "completed"
+      ? "Done"
+      : value.replaceAll("_", " ").replace(/^./, (s) => s.toUpperCase());
 export const localDate = (instant: string | Date) =>
   new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Colombo",
@@ -33,6 +38,13 @@ export const localDate = (instant: string | Date) =>
     day: "2-digit",
   }).format(new Date(instant));
 export const today = () => localDate(new Date());
+export function currentWorkWeek(date = today()) {
+  const start = startOfWeek(parseISO(date), { weekStartsOn: 1 });
+  return [
+    format(start, "yyyy-MM-dd") + "T00:00:00+05:30",
+    format(addDays(start, 7), "yyyy-MM-dd") + "T00:00:00+05:30",
+  ];
+}
 export const dateLabel = (date: string) =>
   isValid(parseISO(date))
     ? format(parseISO(date), "dd MMM yyyy")
@@ -144,16 +156,21 @@ export const approvedHours = (logs: WorkLog[]) =>
 export const taskSchema = z
   .object({
     title: z.string().trim().min(1, "Enter a task title").max(300),
-    description: z.string().max(10000),
+    description: z.string().max(10000, "Use 10,000 characters or fewer"),
     team_id: z.string().uuid("Select a team"),
-    project_id: z.string(),
-    module_id: z.string(),
-    assignee_id: z.string(),
+    project_id: z.union([z.literal(""), z.uuid("Select a valid project")]),
+    module_id: z.union([z.literal(""), z.uuid("Select a valid module")]),
+    assignee_id: z.union([z.literal(""), z.uuid("Select a valid assignee")]),
     priority: z.enum(["low", "medium", "high", "urgent"]),
     status: z.enum(statuses),
-    target_date: z.string(),
-    blocker: z.string().max(4000),
-    blocker_owner: z.string().optional(),
+    target_date: z.union([
+      z.literal(""),
+      z.iso.date("Select a valid target date"),
+    ]),
+    blocker: z.string().max(4000, "Use 4,000 characters or fewer"),
+    blocker_owner: z
+      .union([z.literal(""), z.uuid("Select a valid blocker owner")])
+      .optional(),
   })
   .refine((t) => t.status !== "blocked" || t.blocker.trim().length > 0, {
     path: ["blocker"],
@@ -162,10 +179,10 @@ export const taskSchema = z
 export const leaveSchema = z
   .object({
     leave_type_id: z.string().uuid("Select a leave type"),
-    starts_on: z.iso.date(),
-    ends_on: z.iso.date(),
+    starts_on: z.iso.date("Select a valid start date"),
+    ends_on: z.iso.date("Select a valid end date"),
     half_day: z.boolean(),
-    reason: z.string().max(2000),
+    reason: z.string().max(2000, "Use 2,000 characters or fewer"),
   })
   .refine((l) => l.ends_on >= l.starts_on, {
     path: ["ends_on"],
@@ -175,26 +192,15 @@ export const leaveSchema = z
     path: ["ends_on"],
     message: "Half-day leave must be on one date",
   });
-export const workSchema = z.object({
-  work_date: z.iso.date(),
-  hours: z.number().min(0).max(24),
-  attendance: z.enum([
-    "working",
-    "half_day",
-    "on_leave",
-    "absent",
-    "holiday",
-    "weekend",
-  ]),
-  completed_work: z.string().max(10000),
-  remaining_work: z.string().max(10000),
-  blockers: z.string().max(4000),
-  unplanned_work: z.string().max(4000),
-  notes: z.string().max(4000),
-});
 export const rangeSchema = z
-  .object({ start: z.iso.date(), end: z.iso.date() })
-  .refine((r) => r.end >= r.start, "End date must follow start date");
+  .object({
+    start: z.iso.date("Select a valid start date"),
+    end: z.iso.date("Select a valid end date"),
+  })
+  .refine((r) => r.end >= r.start, {
+    path: ["end"],
+    message: "End date must follow start date",
+  });
 export function whatsapp(
   date: string,
   style: "person" | "team",

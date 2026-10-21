@@ -16,6 +16,7 @@ export interface Base {
   created_at: string;
 }
 export interface Profile extends Base {
+  avatar_url?: string | null;
   name: string;
   email: string;
   role: Role;
@@ -191,6 +192,15 @@ export interface Database {
     Tables: { [K in keyof Tables]: TableDef<Tables[K]> };
     Views: Record<never, never>;
     Functions: {
+      search_tasks: {
+        Args: {
+          p_query?: string;
+          p_filters?: Json;
+          p_page?: number;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
       command: { Args: { action: string; payload: Json }; Returns: Json };
       expected_attendance: { Args: { d: string; day: string }; Returns: Json };
     };

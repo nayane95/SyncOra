@@ -1,5 +1,10 @@
+import { motion, useReducedMotion } from "framer-motion";
+import { RefreshCw, ShieldCheck } from "lucide-react";
+import { Card } from "../components/ui/card";
 import {
   createContext,
+  lazy,
+  Suspense,
   useContext,
   useEffect,
   useState,
@@ -13,15 +18,20 @@ import { message } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Loading, ErrorState } from "../components/shared";
 import type { Profile } from "../types/database";
+const LoginIllustration = lazy(
+  () => import("../components/login-illustration"),
+);
 interface AuthState {
   profile: Profile | null;
   session: Session | null;
+  avatarUrl: string | undefined;
   loading: boolean;
   error: unknown;
 }
 const AuthContext = createContext<AuthState>({
   profile: null,
   session: null,
+  avatarUrl: undefined,
   loading: true,
   error: null,
 });
@@ -92,6 +102,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         profile: profile.data ?? null,
         session,
+        avatarUrl: [
+          session?.user.user_metadata?.avatar_url,
+          session?.user.user_metadata?.picture,
+          profile.data?.avatar_url,
+        ].find(
+          (value): value is string =>
+            typeof value === "string" && value.startsWith("https://"),
+        ),
         loading: loading || (!!session && profile.isPending),
         error: authError || profile.error,
       }}
@@ -134,6 +152,7 @@ export function Guard({
   return children;
 }
 export function Login() {
+  const reducedMotion = useReducedMotion();
   const { profile, loading, session } = useAuth();
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -167,67 +186,126 @@ export function Login() {
   }
   return (
     <main className="auth-layout">
-      <section className="auth-story">
-        <span className="wordmark">
-          Sync<span>Ora</span>
-        </span>
-        <div>
-          <p className="eyebrow">A clearer working day</p>
-          <h1>
-            Plan together.
-            <br />
-            Keep work moving.
-          </h1>
-          <p>
-            Morning assignments, evening updates, and the context your next
-            meeting needs.
-          </p>
-          <div className="day-rhythm">
-            <span>09:00 · Plan the day</span>
-            <span>17:00 · Close the loop</span>
-          </div>
+      <section
+        className="auth-story auth-story-future"
+        aria-label="About SyncOra"
+      >
+        <div className="auth-story-top">
+          <span className="wordmark">
+            <RefreshCw className="auth-brand-symbol" aria-hidden="true" />
+            <span>
+              Sync<span>Ora</span>
+            </span>
+          </span>
+          <span className="auth-parent-brand">A workspace by Blissora</span>
         </div>
-        <small>Daily standups & team work management</small>
+        <div className="auth-hero">
+          <motion.div
+            className="auth-story-copy"
+            initial={reducedMotion ? false : { y: 12 }}
+            animate={{ y: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          >
+            <p className="eyebrow">A clearer working day</p>
+            <h1>
+              Plan together.
+              <br />
+              Keep work moving.
+            </h1>
+            <p>Your tasks, daily progress, and the context your team needs.</p>
+          </motion.div>
+          <Suspense
+            fallback={
+              <div
+                className="login-illustration-placeholder"
+                aria-hidden="true"
+              />
+            }
+          >
+            <LoginIllustration />
+          </Suspense>
+        </div>
+        <div className="auth-story-footer">
+          <span>Plan. Progress. Carry forward.</span>
+          <span>SyncOra / Blissora</span>
+        </div>
       </section>
-      <section className="auth-panel">
-        <p className="eyebrow">Your team workspace</p>
-        <h2>
-          {configured ? "Welcome to SyncOra" : "Connect your workspace"}
-        </h2>
-        <p className="muted">
-          {configured
-            ? "Sign in with your work Google account. New accounts require administrator approval."
-            : "Set up Supabase to enable secure sign-in and persistent team data."}
-        </p>
-        {configured ? (
-          <Button disabled={busy} onClick={signIn}>
-            {busy ? "Opening Google…" : "Continue with Google"}
-          </Button>
-        ) : (
-          <div className="setup">
-            <ol>
-              <li>Create a Supabase project and apply both migrations.</li>
-              <li>Enable Google in Supabase Authentication.</li>
-              <li>
-                Copy <code>.env.example</code> to <code>.env.local</code> and
-                add the project URL and publishable key.
-              </li>
-              <li>
-                Bootstrap your first administrator using the documented SQL.
-              </li>
-              <li>Restart the development server.</li>
-            </ol>
-            <p>
-              Setup instructions: <code>docs/deployment.md</code>
-            </p>
-          </div>
-        )}
-        {error && <ErrorState error={new Error(error)} />}
-        <p className="auth-note">
-          Access is limited to approved team members. Your Google password is
-          never shared with this application.
-        </p>
-      </section>
+      <div className="auth-signin-region">
+        <Card className="auth-panel">
+          <h2>
+            {configured ? (
+              <>
+                Welcome to{" "}
+                <span>
+                  Sync<span className="text-primary">Ora</span>
+                </span>
+              </>
+            ) : (
+              "Connect your workspace"
+            )}
+          </h2>
+          <p className="muted">
+            {configured
+              ? "Sign in with your work Google account to continue."
+              : "Set up Supabase to enable secure sign-in and persistent team data."}
+          </p>
+          {configured ? (
+            <Button disabled={busy} onClick={signIn}>
+              <svg
+                className="google-signin-mark"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  fill="currentColor"
+                  d="M21.6 12.2c0-.7-.1-1.5-.2-2.2H12v4.2h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.8 3-4.3 3-7.5ZM12 22c2.7 0 5-1 6.6-2.3l-3.2-2.5a6 6 0 0 1-9-3.2H3.1v2.6A10 10 0 0 0 12 22ZM6.4 14a6 6 0 0 1 0-4V7.4H3.1a10 10 0 0 0 0 9.2L6.4 14ZM12 6c1.5 0 2.8.5 3.8 1.5l2.8-2.8A9.5 9.5 0 0 0 12 2a10 10 0 0 0-8.9 5.4L6.4 10A6 6 0 0 1 12 6Z"
+                />
+              </svg>
+              {busy ? "Opening Google…" : "Continue with Google"}
+            </Button>
+          ) : (
+            <div className="setup">
+              <ol>
+                <li>
+                  Create a Supabase project and apply the repository migrations.
+                </li>
+                <li>Enable Google in Supabase Authentication.</li>
+                <li>
+                  Copy <code>.env.example</code> to <code>.env.local</code> and
+                  add the project URL and publishable key.
+                </li>
+                <li>
+                  Bootstrap your first administrator using the documented SQL.
+                </li>
+                <li>Restart the development server.</li>
+              </ol>
+              <p>
+                Setup instructions: <code>docs/deployment.md</code>
+              </p>
+            </div>
+          )}
+          {error && <ErrorState error={new Error(error)} />}
+          <p className="auth-note">
+            <ShieldCheck size={16} aria-hidden="true" />
+            <span>
+              New accounts need administrator approval. Your Google password
+              stays with Google.
+            </span>
+          </p>
+        </Card>
+        <div className="auth-signin-illustration">
+          <Suspense
+            fallback={
+              <div
+                className="login-illustration-placeholder"
+                aria-hidden="true"
+              />
+            }
+          >
+            <LoginIllustration variant="relay" />
+          </Suspense>
+        </div>
+      </div>
     </main>
   );
 }

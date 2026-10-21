@@ -1,339 +1,346 @@
+import { DeveloperCompletionHeatmap } from "../components/developer-completion-heatmap";
+import { useState } from "react";
+import { ChevronDown, Search, TriangleAlert } from "lucide-react";
+import { Card } from "../components/ui/card";
 import { Link } from "react-router-dom";
-import { format, subDays } from "date-fns";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-} from "recharts";
-import { ArrowUpRight, Sun, Moon, Plus } from "lucide-react";
 import { useAuth } from "../app/auth";
 import { useAllRows } from "../lib/api";
-import {
-  approvedHours,
-  attendanceFor,
-  carryForward,
-  dateLabel,
-  missingUpdates,
-  today,
-} from "../lib/business";
-import { TaskList } from "./tasks";
-import { Analytics } from "./analytics";
+import { today } from "../lib/business";
+import { TaskList, TasksPage } from "./tasks";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "../components/ui/native-select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
 import {
   Avatar,
-  Badge,
   Empty,
   ErrorState,
   Loading,
   Metrics,
   PageHeader,
 } from "../components/shared";
+
 export function Dashboard() {
-  const { profile } = useAuth(),
-    admin = profile?.role !== "developer",
-    date = today(),
-    start = format(subDays(new Date(`${date}T12:00:00`), 6), "yyyy-MM-dd");
-  const tasks = useAllRows("tasks", [
-      {
-        column: "status",
-        op: "in",
-        value: ["backlog", "planned", "in_progress", "blocked"],
-      },
-    ]),
-    logs = useAllRows("daily_work_logs", [
-      { column: "work_date", op: "gte", value: start },
-      { column: "work_date", op: "lte", value: date },
-    ]),
+  const { profile } = useAuth();
+  return profile?.role === "developer" ? <TasksPage mine /> : <TeamOverview />;
+}
+
+function TeamOverview() {
+  const tasks = useAllRows("tasks"),
     people = useAllRows("profiles"),
-    leaves = useAllRows("leave_requests", [
-      { column: "status", value: "approved" },
-      { column: "ends_on", op: "gte", value: date },
-      { column: "starts_on", op: "lte", value: date },
-    ]),
-    calendar = useAllRows("working_calendar_settings"),
-    holidays = useAllRows("holidays"),
-    memberships = useAllRows("team_memberships", [
-      { column: "starts_on", op: "lte", value: date },
-    ]);
-  const error =
-    tasks.error ||
-    logs.error ||
-    people.error ||
-    leaves.error ||
-    calendar.error ||
-    holidays.error ||
-    memberships.error;
-  const daily = logs.data?.filter((l) => l.work_date === date) || [],
-    active =
-      people.data?.filter(
-        (p) =>
-          p.role === "developer" &&
-          p.status === "active" &&
-          (profile!.role === "super_admin" ||
-            p.id === profile!.id ||
-            memberships.data?.some(
-              (m) =>
-                m.developer_id === p.id && (!m.ends_on || m.ends_on > date),
-            )),
-      ) || [],
-    pending = missingUpdates(
-      active,
-      daily,
-      leaves.data || [],
-      date,
-      calendar.data?.[0]?.working_days,
-      holidays.data?.map((h) => h.holiday_date),
+    teams = useAllRows("teams"),
+    memberships = useAllRows("team_memberships");
+  const [search, setSearch] = useState("");
+  const [teamId, setTeamId] = useState("");
+  const date = today();
+  const error = tasks.error || people.error || teams.error || memberships.error;
+  const active =
+    people.data?.filter(
+      (p) => p.role === "developer" && p.status === "active",
+    ) || [];
+  const current =
+    tasks.data?.filter((t) => !["completed", "cancelled"].includes(t.status)) ||
+    [];
+  const activeTeams = teams.data?.filter((team) => !team.archived) || [];
+  const blocked = current.filter((task) => task.status === "blocked");
+  const roster = active
+    .map((person) => {
+      const work = current.filter((task) => task.assignee_id === person.id);
+      const teamIds =
+        memberships.data
+          ?.filter(
+            (m) =>
+              m.developer_id === person.id &&
+              m.starts_on <= date &&
+              (!m.ends_on || m.ends_on > date),
+          )
+          .map((m) => m.team_id) || [];
+      return {
+        person,
+        work,
+        teamIds,
+        blocked: work.filter((task) => task.status === "blocked").length,
+        progressing: work.filter((task) => task.status === "in_progress")
+          .length,
+      };
+    })
+    .filter(
+      (row) =>
+        row.person.name.toLowerCase().includes(search.trim().toLowerCase()) &&
+        (!teamId || row.teamIds.includes(teamId)),
+    )
+    .sort(
+      (a, b) =>
+        b.blocked - a.blocked || a.person.name.localeCompare(b.person.name),
     );
-  const chart = Array.from({ length: 7 }, (_, i) => {
-    const day = format(
-      subDays(new Date(`${date}T12:00:00`), 6 - i),
-      "yyyy-MM-dd",
-    );
-    return {
-      day: format(new Date(`${day}T12:00:00`), "EEE"),
-      hours: approvedHours(logs.data?.filter((l) => l.work_date === day) || []),
-    };
-  });
   return (
-    <>
+    <div className="team-overview">
       <PageHeader
-        eyebrow={dateLabel(date)}
-        title={`Good ${new Date().getHours() < 12 ? "morning" : "day"}, ${profile!.name.split(" ")[0]}`}
-        description={
-          admin
-            ? "Here’s where your team stands. Make the next conversation count."
-            : "Your work, your updates, and a clear next step."
-        }
+        title="Team overview"
+        description="See who is working on what and where the team needs help."
         actions={
           <Button asChild>
-            <Link to={admin ? "/admin/morning-standup" : "/my-updates"}>
-              {admin ? <Sun size={17} /> : <Plus size={17} />}
-              {admin ? "Start morning standup" : "Write daily update"}
-            </Link>
+            <Link to="/admin/morning-standup">Open standup</Link>
           </Button>
         }
       />
       {tasks.isPending ||
-      logs.isPending ||
       people.isPending ||
-      memberships.isPending ||
-      leaves.isPending ||
-      calendar.isPending ||
-      holidays.isPending ? (
+      teams.isPending ||
+      memberships.isPending ? (
         <Loading />
       ) : error ? (
         <ErrorState error={error} />
       ) : (
         <>
           <Metrics
-            items={
-              admin
-                ? [
-                    { label: "Active developers", value: active.length },
-                    {
-                      label: "Today’s submissions",
-                      value: daily.filter((l) => l.status !== "draft").length,
-                    },
-                    { label: "Updates pending", value: pending.length },
-                    {
-                      label: "Approved hours today",
-                      value: approvedHours(daily),
-                      note: "Daily totals, counted once",
-                    },
-                  ]
-                : [
-                    { label: "Open tasks", value: tasks.data.length },
-                    {
-                      label: "Carry-forward tasks",
-                      value: carryForward(tasks.data, date).length,
-                    },
-                    {
-                      label: "My update",
-                      value:
-                        daily[0]?.status.replaceAll("_", " ") || "Not started",
-                    },
-                    {
-                      label: "Expected hours",
-                      value: attendanceFor(
-                        date,
-                        leaves.data || [],
-                        calendar.data?.[0]?.working_days,
-                        holidays.data?.map((h) => h.holiday_date),
-                      ).hours,
-                    },
-                  ]
-            }
+            items={[
+              { label: "Active developers", value: active.length },
+              {
+                label: "To do",
+                value: current.filter((t) =>
+                  ["planned", "backlog"].includes(t.status),
+                ).length,
+              },
+              {
+                label: "In progress",
+                value: current.filter((t) => t.status === "in_progress").length,
+              },
+              { label: "Blocked", value: blocked.length },
+            ]}
           />
-          {admin && (
-            <div className="meeting-shortcuts">
-              <Link to="/admin/morning-standup">
-                <Sun size={23} />
-                <div>
-                  <h3>Make a plan for today</h3>
-                  <p>Review carry-forward work and confirm assignments.</p>
-                </div>
-                <ArrowUpRight size={20} />
-              </Link>
-              <Link to="/admin/evening-standup">
-                <Moon size={23} />
-                <div>
-                  <h3>Bring the day together</h3>
-                  <p>Review updates and keep tomorrow in view.</p>
-                </div>
-                <ArrowUpRight size={20} />
-              </Link>
-            </div>
-          )}
-          {admin && <Analytics logs={logs.data} />}
-          <div className="dashboard-grid">
-            <section className="panel">
+          <div className="overview-layout">
+            <Card className="panel overview-roster">
               <div className="panel-heading">
                 <div>
-                  <h2>
-                    {admin ? "Work that needs attention" : "Today’s work"}
-                  </h2>
+                  <h2>Developer workload</h2>
                   <p className="muted">
-                    {tasks.data.filter((t) => t.status === "blocked").length}{" "}
-                    blocked · {carryForward(tasks.data, date).length} carried
-                    forward
+                    Blocked work first. Expand a developer to review their
+                    tasks.
                   </p>
                 </div>
-                <Link to={admin ? "/admin/tasks" : "/my-tasks"}>View all</Link>
+                <span className="muted">
+                  {roster.length} of {active.length}
+                </span>
               </div>
-              {tasks.data.length ? (
-                <TaskList
-                  compact
-                  tasks={[...tasks.data]
-                    .sort(
-                      (a, b) =>
-                        Number(b.status === "blocked") -
-                        Number(a.status === "blocked"),
-                    )
-                    .slice(0, 6)}
-                />
-              ) : (
-                <Empty title="No open tasks">
-                  {admin
-                    ? "Assign your first task to begin the day."
-                    : "Your assignments will appear here."}
+              <div className="overview-filters">
+                <div className="overview-search">
+                  <Search size={16} aria-hidden="true" />
+                  <Input
+                    aria-label="Search developers"
+                    placeholder="Search developers…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                <NativeSelect
+                  aria-label="Developer team"
+                  value={teamId}
+                  onChange={(e) => setTeamId(e.target.value)}
+                >
+                  <NativeSelectOption value="">All teams</NativeSelectOption>
+                  {activeTeams.map((team) => (
+                    <NativeSelectOption key={team.id} value={team.id}>
+                      {team.name}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+                {(search || teamId) && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setSearch("");
+                      setTeamId("");
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                )}
+              </div>
+              <div className="overview-roster-labels" aria-hidden="true">
+                <span>Developer / team</span>
+                <span>In progress</span>
+                <span>Blocked</span>
+                <span>Open</span>
+                <span />
+              </div>
+              {roster.map(({ person, work, teamIds, blocked, progressing }) => (
+                <Collapsible key={person.id} className="overview-person">
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" className="overview-person-trigger">
+                      <span className="overview-person-identity">
+                        <Avatar
+                          name={person.name}
+                          src={person.avatar_url || undefined}
+                        />
+                        <span>
+                          <strong>{person.name}</strong>
+                          <span className="muted">
+                            {teamIds
+                              .map(
+                                (id) =>
+                                  teams.data?.find((team) => team.id === id)
+                                    ?.name,
+                              )
+                              .filter(Boolean)
+                              .join(", ") || "No team assigned"}
+                          </span>
+                        </span>
+                      </span>
+                      <span className="overview-work-count">
+                        <span className="overview-mobile-label">
+                          In progress{" "}
+                        </span>
+                        {progressing}
+                      </span>
+                      <span
+                        className={`overview-work-count ${blocked ? "overview-blocked" : ""}`}
+                      >
+                        <span className="overview-mobile-label">Blocked </span>
+                        {blocked}
+                      </span>
+                      <span className="overview-work-count">
+                        <span className="overview-mobile-label">Open </span>
+                        {work.length}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className="overview-expand"
+                        aria-hidden="true"
+                      />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="overview-person-tasks">
+                    <DeveloperCompletionHeatmap
+                      developerId={person.id}
+                      name={person.name}
+                    />
+                    {work.length ? (
+                      <TaskList
+                        tasks={[...work].sort(
+                          (a, b) =>
+                            Number(b.status === "blocked") -
+                            Number(a.status === "blocked"),
+                        )}
+                        compact
+                      />
+                    ) : (
+                      <p className="muted">No open tasks assigned.</p>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
+              {!roster.length && (
+                <Empty
+                  title={
+                    active.length
+                      ? "No matching developers"
+                      : "No active developers"
+                  }
+                >
+                  {active.length
+                    ? "Try a different name or clear the team filter."
+                    : "Approved developers will appear here once their accounts are active."}
                 </Empty>
               )}
-            </section>
-            <section className="panel chart-panel">
-              <div className="panel-heading">
-                <div>
-                  <h2>Approved work hours</h2>
-                  <p className="muted">Last seven days · daily records</p>
+              <div className="overview-panel-footer">
+                <Button asChild variant="outline">
+                  <Link to="/admin/tasks">Open task register</Link>
+                </Button>
+              </div>
+            </Card>
+            <aside
+              className="overview-sidebar"
+              aria-label="Team summaries and blocked work"
+            >
+              <Card className="panel">
+                <div className="panel-heading">
+                  <h2>Teams</h2>
+                  <span className="muted">{activeTeams.length}</span>
                 </div>
-              </div>
-              <div className="chart">
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={chart}>
-                    <CartesianGrid vertical={false} stroke="var(--border)" />
-                    <XAxis
-                      dataKey="day"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: "var(--muted)", fontSize: 12 }}
-                    />
-                    <YAxis
-                      allowDecimals={false}
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: "var(--muted)", fontSize: 12 }}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        background: "var(--surface)",
-                        border: "1px solid var(--border)",
-                        color: "var(--ink)",
-                      }}
-                    />
-                    <Bar
-                      dataKey="hours"
-                      fill="var(--accent)"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <p className="chart-note">
-                Hours describe recorded work. Task counts are not a productivity
-                score.
-              </p>
-            </section>
-          </div>
-          <div className="dashboard-grid">
-            <section className="panel">
-              <div className="panel-heading">
-                <h2>Recent updates</h2>
-                <Link to={admin ? "/admin/evening-standup" : "/my-history"}>
-                  View updates
-                </Link>
-              </div>
-              {logs.data.length ? (
-                logs.data.slice(0, 5).map((l) => (
-                  <div className="list-row" key={l.id}>
-                    <Avatar
-                      name={
-                        people.data?.find((p) => p.id === l.developer_id)
-                          ?.name || "Team member"
-                      }
-                    />
-                    <div className="grow">
-                      <strong>
-                        {people.data?.find((p) => p.id === l.developer_id)
-                          ?.name || "Team member"}
-                      </strong>
-                      <p className="muted">
-                        {dateLabel(l.work_date)} · {l.hours}h
-                      </p>
+                {activeTeams.map((team) => {
+                  const work = current.filter(
+                    (task) => task.team_id === team.id,
+                  );
+                  const blocked = work.filter(
+                    (task) => task.status === "blocked",
+                  ).length;
+                  return (
+                    <div className="overview-team" key={team.id}>
+                      <div>
+                        <strong>{team.name}</strong>
+                        <span className="muted">{work.length} open tasks</span>
+                      </div>
+                      <div className="overview-team-counts">
+                        <span>
+                          {
+                            work.filter((task) => task.status === "in_progress")
+                              .length
+                          }{" "}
+                          in progress
+                        </span>
+                        <span className={blocked ? "overview-blocked" : ""}>
+                          {blocked} blocked
+                        </span>
+                      </div>
                     </div>
-                    <Badge value={l.status} />
-                  </div>
-                ))
-              ) : (
-                <Empty title="No updates this week" />
-              )}
-            </section>
-            <section className="panel">
-              <div className="panel-heading">
-                <h2>{admin ? "Awaiting an update" : "Your next step"}</h2>
-                <span className="muted">Today</span>
-              </div>
-              {admin ? (
-                pending.length ? (
-                  pending.map((p) => (
-                    <div className="list-row" key={p.id}>
-                      <Avatar name={p.name} />
-                      <strong className="grow">{p.name}</strong>
-                      <Badge value="pending" />
-                    </div>
-                  ))
-                ) : (
-                  <Empty title="No missing updates">
-                    Approved full-day leave and nonworking dates are excluded.
+                  );
+                })}
+                {!activeTeams.length && (
+                  <Empty title="No active teams">
+                    Create or restore a team from Teams.
                   </Empty>
-                )
-              ) : (
-                <div className="padded">
-                  <p className="muted">
-                    Update your task statuses, then submit one daily record
-                    covering all your work.
-                  </p>
-                  <Button asChild variant="secondary">
-                    <Link to="/my-updates">Open daily update</Link>
-                  </Button>
+                )}
+              </Card>
+              <Card className="panel">
+                <div className="panel-heading">
+                  <h2 className="overview-attention-title">
+                    <TriangleAlert size={17} aria-hidden="true" />
+                    Needs attention
+                  </h2>
+                  <span className="muted">{blocked.length}</span>
                 </div>
-              )}
-            </section>
+                {blocked.slice(0, 4).map((task) => (
+                  <div className="overview-blocker" key={task.id}>
+                    <strong>{task.title}</strong>
+                    <p>{task.blocker || "No blocker details added yet."}</p>
+                    <span className="muted">
+                      {people.data?.find(
+                        (person) => person.id === task.assignee_id,
+                      )?.name || "Unassigned"}
+                    </span>
+                  </div>
+                ))}
+                {!blocked.length && (
+                  <p className="overview-clear muted">
+                    No blocked tasks. Review developer updates in your standup.
+                  </p>
+                )}
+                {blocked.length > 4 && (
+                  <p className="overview-clear muted">
+                    {blocked.length - 4} more blocked tasks in the task
+                    register.
+                  </p>
+                )}
+                {!!blocked.length && (
+                  <div className="overview-panel-footer">
+                    <Button asChild variant="outline">
+                      <Link to="/admin/morning-standup">Discuss blockers</Link>
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            </aside>
           </div>
         </>
       )}
-    </>
+    </div>
   );
 }

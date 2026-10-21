@@ -201,7 +201,7 @@ export async function makeWorkbook(
     sheet.getRow(1).fill = {
       type: "pattern",
       pattern: "solid",
-      fgColor: { argb: "FF17675C" },
+      fgColor: { argb: "FF176A45" },
     };
     sheet.getRow(1).height = 26;
     if (sheet !== work) {
@@ -235,5 +235,78 @@ export async function exportReport(
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }),
     `SyncOra-${start}-${end}.xlsx`,
+  );
+}
+
+export const taskReportHeaders = [
+  "Task ID",
+  "Title",
+  "Developer",
+  "Team",
+  "Project",
+  "Module",
+  "Status",
+  "Created",
+  "Completed",
+  "Blocker",
+];
+export async function exportTaskReport(
+  rows: string[][],
+  start: string,
+  end: string,
+  type: "csv" | "xlsx",
+) {
+  const name = `SyncOra-${start}-${end}.${type}`;
+  if (type === "csv") {
+    download(
+      new Blob(
+        [
+          "\uFEFF" +
+            [taskReportHeaders, ...rows]
+              .map((r) => r.map(csvCell).join(","))
+              .join("\r\n"),
+        ],
+        { type: "text/csv;charset=utf-8" },
+      ),
+      name,
+    );
+    return;
+  }
+  const { default: ExcelJS } = await import("exceljs");
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "SyncOra";
+  const sheet = workbook.addWorksheet("Task Progress", {
+    views: [{ state: "frozen", ySplit: 1 }],
+  });
+  sheet.addRows([taskReportHeaders, ...rows]);
+  sheet.columns.forEach((column, i) => {
+    column.width = i === 1 || i === 9 ? 50 : 24;
+  });
+  sheet.eachRow((row) => {
+    row.alignment = { vertical: "top", wrapText: true };
+  });
+  sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+  sheet.getRow(1).fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FF176A45" },
+  };
+  sheet.autoFilter = { from: "A1", to: `J${Math.max(1, sheet.rowCount)}` };
+  const details = workbook.addWorksheet("Report Details");
+  details.addRows([
+    ["Period", `${start} to ${end}`],
+    [
+      "Source",
+      "Open tasks as of end date and tasks completed in period. Cancelled tasks excluded. Project and module show current values.",
+    ],
+    ["Generated", new Date().toISOString()],
+  ]);
+  details.columns = [{ width: 24 }, { width: 100 }];
+  const bytes = await workbook.xlsx.writeBuffer();
+  download(
+    new Blob([bytes as ArrayBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
+    name,
   );
 }

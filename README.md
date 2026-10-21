@@ -29,7 +29,7 @@ The optional Edge Function mock suite uses Deno without live credentials:
 npm exec --yes --package=deno -- deno test --allow-env supabase/functions/_shared/sheets.test.ts
 ```
 
-Playwright starts its own server on port 5174 with explicit test-only API fixtures, separate from the app on port 5173. Database tests execute both real migration files in embedded PostgreSQL with Supabase's auth schema replaced by a minimal test fixture; they test actual RLS and SQL commands, not mocked permissions.
+Playwright starts its own server on port 5174 with explicit test-only API fixtures, separate from the app on port 5173. Database tests execute all four real migration files in embedded PostgreSQL with Supabase's auth schema replaced by a minimal test fixture; they test actual RLS and SQL commands, not mocked permissions.
 
 ## What is included
 
@@ -37,7 +37,7 @@ Playwright starts its own server on port 5174 with explicit test-only API fixtur
 - Team membership history, lead scope, projects, modules, and team/project access.
 - Stable task IDs, status history, comments, contributors, bulk assignment/status changes, and conflict detection.
 - Morning plans and evening review, draft/confirmed meetings, automatic carry-forward without cloning tasks.
-- Daily hours recorded once, immutable submitted/approved records, revisions, admin capture with attribution.
+- Developer Overview shows today’s To do / In progress / Done board. My tasks uses React Big Calendar; selecting a day opens its historical tasks in a bottom sheet. Unfinished tasks carry forward automatically; completed tasks appear on their completion day. Creation dates and configured workdays spent In progress are derived from saved task/status history (excluding weekends/holidays, without manual hours). Admins review work by developer and team in standups. Daily notes, daily-note history pages and submission/review controls are retired. Old links redirect to My tasks. Task comments and shared meeting notes remain; historical daily records are retained in the report archive without new-entry or review controls.
 - Leave requests and decisions, overlap exclusion constraint, working calendar, holidays, and attendance defaults.
 - Authorized analytics, deterministic WhatsApp summaries, immutable report snapshots, XLSX and safe CSV exports.
 - Optional server-side Google Sheets synchronization, retries, reconciliation, sync history, and scheduling endpoint.
@@ -56,3 +56,7 @@ Playwright starts its own server on port 5174 with explicit test-only API fixtur
 - [Progress checklist](PROGRESS.md)
 
 No credentials are included. Remote OAuth, Supabase Realtime, deployed Edge Functions, and Google Sheets need live validation in your configured environment before release. Local tests do not establish that those services are configured correctly.
+
+### UI development
+
+Read [DESIGN.md](DESIGN.md) before changing screens. It defines the Blissora palette, shadcn primitives, task cards/sheets, theme tokens, form validation and mobile/accessibility checks. Repository instructions in [AGENTS.md](AGENTS.md) make this the default for future work. Shared components live in `src/components/ui`; the `@/` alias is configured for new shadcn components.

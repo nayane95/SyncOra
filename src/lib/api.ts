@@ -3,7 +3,8 @@ import { client, configured } from "./supabase";
 import type { Json, Tables } from "../types/database";
 export type Filter = {
   column: string;
-  op?: "eq" | "gte" | "lte" | "in" | "is" | "search" | "assigned";
+  op?:
+    "eq" | "gte" | "lte" | "in" | "is" | "search" | "assigned" | "board_week";
   value: string | boolean | null | string[];
 };
 export async function rows<K extends keyof Tables>(
@@ -35,6 +36,11 @@ export async function rows<K extends keyof Tables>(
       if (error) throw error;
       query = query.or(
         `assignee_id.eq.${f.value}${data.length ? `,id.in.(${data.map((a) => a.task_id).join(",")})` : ""}`,
+      );
+    } else if (f.op === "board_week") {
+      const [start, end] = f.value as string[];
+      query = query.or(
+        `status.not.in.(completed,cancelled),and(status.eq.completed,completed_at.gte.${start},completed_at.lt.${end})`,
       );
     } else if (f.op === "in")
       query = query.filter(
@@ -108,8 +114,6 @@ export function useCommand() {
         plan: ["standup_sessions", "standup_assignments"],
         leave: ["leave_requests"],
         leave_decision: ["leave_requests", "daily_work_logs"],
-        work_log: ["daily_work_logs", "daily_task_updates"],
-        review: ["daily_work_logs"],
         snapshot: ["report_snapshots"],
         export: ["report_exports"],
       };
@@ -137,5 +141,40 @@ export function useAllRows<K extends keyof Tables>(
     queryKey: [table, "all", filters],
     queryFn: () => allRows(table, filters),
     enabled: configured && enabled,
+  });
+}
+
+export function useTaskSearch(
+  query: string,
+  filters: Filter[],
+  page: number,
+  limit: number,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: ["tasks", "search", query, filters, page, limit],
+    enabled: configured && enabled,
+    queryFn: async ({ signal }) => {
+      const values = Object.fromEntries(
+        filters
+          .filter((filter) => !filter.op && filter.column !== "title")
+          .map((filter) => [filter.column, filter.value]),
+      );
+      const { data, error } = await client()
+        .rpc("search_tasks", {
+          p_query: query,
+          p_filters: values,
+          p_page: page,
+          p_limit: limit,
+        })
+        .abortSignal(signal);
+      if (error) throw error;
+      return data as unknown as {
+        items: Tables["tasks"][];
+        total: number;
+        page: number;
+        limit: number;
+      };
+    },
   });
 }

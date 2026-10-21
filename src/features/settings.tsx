@@ -1,3 +1,25 @@
+import { DeveloperCompletionHeatmap } from "../components/developer-completion-heatmap";
+import { Controller } from "react-hook-form";
+import { Checkbox } from "../components/ui/checkbox";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from "../components/ui/table";
+import { Label } from "../components/ui/label";
+import { Input } from "../components/ui/input";
+import { Card } from "../components/ui/card";
+import { useValidatedForm } from "../lib/use-validated-form";
+import {
+  profileSchema,
+  calendarSchema,
+  holidaySchema,
+  nameSchema,
+  integrationSchema,
+} from "../lib/form-schemas";
 import { useState } from "react";
 import { useAuth } from "../app/auth";
 import { useAllRows, useCommand, useRows, message } from "../lib/api";
@@ -5,6 +27,7 @@ import { client } from "../lib/supabase";
 import { dateLabel, today } from "../lib/business";
 import { Button } from "../components/ui/button";
 import {
+  Avatar,
   Badge,
   Empty,
   ErrorState,
@@ -14,46 +37,68 @@ import {
   Pager,
 } from "../components/shared";
 export function ProfilePage() {
-  const { profile } = useAuth(),
+  const { profile, avatarUrl } = useAuth(),
     [name, setName] = useState(profile!.name),
     [job, setJob] = useState(profile!.job_title),
     [saved, setSaved] = useState(false),
     mutation = useCommand();
+  const form = useValidatedForm(profileSchema, { name, job });
   return (
     <>
       <PageHeader
         title="My profile"
         description="Your display name and reporting role."
       />
-      <section className="panel padded narrow">
+      <DeveloperCompletionHeatmap
+        developerId={profile!.id}
+        name={profile!.name}
+      />
+      <Card className="panel padded narrow">
+        <div className="profile-identity">
+          <Avatar name={profile!.name} src={avatarUrl} />
+          <div>
+            <strong>{profile!.name}</strong>
+            <p className="muted">{profile!.email}</p>
+          </div>
+        </div>
         <form
           className="form-grid"
-          onSubmit={(e) => {
-            e.preventDefault();
+          noValidate
+          onSubmit={form.handleSubmit((values) => {
             mutation.mutate(
-              { action: "profile", payload: { name, job_title: job } },
+              {
+                action: "profile",
+                payload: { name: values.name, job_title: values.job },
+              },
               { onSuccess: () => setSaved(true) },
             );
-          }}
+          })}
         >
-          <Field label="Name">
-            <input
+          <Field label="Name" error={form.formState.errors.name?.message}>
+            <Input
               required
               maxLength={120}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              {...form.register("name", {
+                onChange: (e) => setName(e.target.value),
+              })}
             />
           </Field>
-          <Field label="Job title (shown in work reports)">
-            <input
+          <Field
+            label="Job title (shown in work reports)"
+            error={form.formState.errors.job?.message}
+          >
+            <Input
               required
               maxLength={120}
               value={job}
-              onChange={(e) => setJob(e.target.value)}
+              {...form.register("job", {
+                onChange: (e) => setJob(e.target.value),
+              })}
             />
           </Field>
           <Field label="Work email">
-            <input disabled value={profile!.email} />
+            <Input disabled value={profile!.email} />
           </Field>
           <p className="muted">
             Access role: {profile!.role.replaceAll("_", " ")}. Only a Super
@@ -67,7 +112,7 @@ export function ProfilePage() {
           )}
           <Button disabled={mutation.isPending}>Save profile</Button>
         </form>
-      </section>
+      </Card>
     </>
   );
 }
@@ -84,6 +129,15 @@ export function SettingsPage() {
     [saved, setSaved] = useState("");
   const current = calendar.data?.[0],
     working = days ?? current?.working_days ?? [1, 2, 3, 4, 5];
+  const calendarForm = useValidatedForm(calendarSchema, {
+    days: working,
+    domains: domains ?? current?.allowed_domains.join(", ") ?? "",
+  });
+  const holidayForm = useValidatedForm(holidaySchema, {
+    date: holiday,
+    name: holidayName,
+  });
+  const typeForm = useValidatedForm(nameSchema, { name: type });
   return (
     <>
       <PageHeader
@@ -92,7 +146,7 @@ export function SettingsPage() {
       />
       {calendar.error && <ErrorState error={calendar.error} />}
       <div className="settings-grid">
-        <section className="panel padded">
+        <Card className="panel padded">
           <h2>Working calendar</h2>
           <p className="muted">
             Dates use Asia/Colombo. Nonworking dates do not create
@@ -100,8 +154,8 @@ export function SettingsPage() {
           </p>
           <form
             className="form-grid"
-            onSubmit={(e) => {
-              e.preventDefault();
+            noValidate
+            onSubmit={calendarForm.handleSubmit(() => {
               mutation.mutate(
                 {
                   action: "calendar",
@@ -119,56 +173,72 @@ export function SettingsPage() {
                 },
                 { onSuccess: () => setSaved("Calendar settings saved.") },
               );
-            }}
+            })}
           >
             <div className="day-options">
               {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
                 (name, i) => (
-                  <label
+                  <Label
                     key={name}
                     className={
                       working.includes(i) ? "day-option checked" : "day-option"
                     }
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={working.includes(i)}
-                      onChange={(e) =>
-                        setDays(
-                          e.target.checked
+                      onCheckedChange={(checked) => {
+                        const next =
+                          checked === true
                             ? [...working, i]
-                            : working.filter((d) => d !== i),
-                        )
+                            : working.filter((d) => d !== i);
+                        setDays(next);
+                        calendarForm.setValue("days", next, {
+                          shouldValidate: calendarForm.formState.isSubmitted,
+                        });
+                      }}
+                      aria-invalid={!!calendarForm.formState.errors.days}
+                      aria-describedby={
+                        calendarForm.formState.errors.days
+                          ? "working-days-error"
+                          : undefined
                       }
                     />
                     {name}
-                  </label>
+                  </Label>
                 ),
               )}
             </div>
-            <Field label="Allowed email domains (comma separated)">
-              <input
+            {calendarForm.formState.errors.days && (
+              <p id="working-days-error" className="field-error" role="alert">
+                {calendarForm.formState.errors.days.message}
+              </p>
+            )}
+            <Field
+              label="Allowed email domains (comma separated)"
+              error={calendarForm.formState.errors.domains?.message}
+            >
+              <Input
                 value={domains ?? current?.allowed_domains.join(", ") ?? ""}
-                onChange={(e) => setDomains(e.target.value)}
+                {...calendarForm.register("domains", {
+                  onChange: (e) => setDomains(e.target.value),
+                })}
                 placeholder="Leave empty to allow any domain"
                 pattern="[a-zA-Z0-9.,\- ]*"
               />
             </Field>
-            <Button disabled={mutation.isPending || !working.length}>
-              Save calendar
-            </Button>
+            <Button disabled={mutation.isPending}>Save calendar</Button>
           </form>
-        </section>
-        <section className="panel padded">
+        </Card>
+        <Card className="panel padded">
           <h2>Public holidays</h2>
           <form
             className="form-grid"
-            onSubmit={(e) => {
-              e.preventDefault();
+            noValidate
+            onSubmit={holidayForm.handleSubmit((values) => {
               mutation.mutate(
                 {
                   action: "holiday",
-                  payload: { holiday_date: holiday, name: holidayName },
+                  payload: { holiday_date: holiday, name: values.name },
                 },
                 {
                   onSuccess: () => {
@@ -177,23 +247,33 @@ export function SettingsPage() {
                   },
                 },
               );
-            }}
+            })}
           >
             <div className="form-row">
-              <Field label="Date">
-                <input
+              <Field
+                label="Date"
+                error={holidayForm.formState.errors.date?.message}
+              >
+                <Input
                   required
                   type="date"
                   value={holiday}
-                  onChange={(e) => setHoliday(e.target.value)}
+                  {...holidayForm.register("date", {
+                    onChange: (e) => setHoliday(e.target.value),
+                  })}
                 />
               </Field>
-              <Field label="Holiday name">
-                <input
+              <Field
+                label="Holiday name"
+                error={holidayForm.formState.errors.name?.message}
+              >
+                <Input
                   required
                   maxLength={120}
                   value={holidayName}
-                  onChange={(e) => setHolidayName(e.target.value)}
+                  {...holidayForm.register("name", {
+                    onChange: (e) => setHolidayName(e.target.value),
+                  })}
                 />
               </Field>
             </div>
@@ -220,30 +300,33 @@ export function SettingsPage() {
               </Button>
             </div>
           ))}
-        </section>
-        <section className="panel padded">
+        </Card>
+        <Card className="panel padded">
           <h2>Leave types</h2>
           <form
             className="toolbar"
-            onSubmit={(e) => {
-              e.preventDefault();
+            noValidate
+            onSubmit={typeForm.handleSubmit((values) => {
               mutation.mutate(
-                { action: "leave_type", payload: { name: type } },
+                { action: "leave_type", payload: { name: values.name } },
                 { onSuccess: () => setType("") },
               );
-            }}
+            })}
           >
-            <label className="sr-only" htmlFor="new-type">
-              New leave type
-            </label>
-            <input
-              id="new-type"
-              required
-              value={type}
-              maxLength={120}
-              onChange={(e) => setType(e.target.value)}
-              placeholder="New leave type"
-            />
+            <Field
+              label="New leave type"
+              error={typeForm.formState.errors.name?.message}
+            >
+              <Input
+                id="new-type"
+                value={type}
+                maxLength={120}
+                {...typeForm.register("name", {
+                  onChange: (e) => setType(e.target.value),
+                })}
+                placeholder="New leave type"
+              />
+            </Field>
             <Button variant="secondary" disabled={mutation.isPending}>
               Add type
             </Button>
@@ -264,7 +347,7 @@ export function SettingsPage() {
               </Button>
             </div>
           ))}
-        </section>
+        </Card>
       </div>
       {mutation.error && <ErrorState error={mutation.error} />}
       {saved && (
@@ -285,6 +368,10 @@ export function IntegrationsPage() {
     [feedback, setFeedback] = useState(""),
     [error, setError] = useState("");
   const config = settings.data?.[0];
+  const integrationForm = useValidatedForm(integrationSchema, {
+    sheet: sheet ?? config?.spreadsheet_id ?? "",
+    enabled: enabled ?? config?.enabled ?? false,
+  });
   async function sync() {
     setBusy(true);
     setError("");
@@ -308,45 +395,61 @@ export function IntegrationsPage() {
         title="Integrations"
         description="Supabase is the source of truth. Sheets is an optional reporting destination."
       />
-      <section className="panel padded narrow">
+      <Card className="panel padded narrow">
         <h2>Google Sheets</h2>
         <p className="muted">
           Configure service-account credentials as Edge Function secrets first.
-          Share the spreadsheet with that account as an editor. SyncOra owns
-          the five named reporting tabs.
+          Share the spreadsheet with that account as an editor. SyncOra owns the
+          five named reporting tabs.
         </p>
         <form
           className="form-grid"
-          onSubmit={(e) => {
-            e.preventDefault();
+          noValidate
+          onSubmit={integrationForm.handleSubmit((values) => {
             mutation.mutate(
               {
                 action: "integration",
                 payload: {
-                  enabled: enabled ?? config?.enabled ?? false,
-                  spreadsheet_id: sheet ?? config?.spreadsheet_id ?? "",
+                  enabled: values.enabled,
+                  spreadsheet_id: values.sheet,
                 },
               },
               { onSuccess: () => setFeedback("Integration settings saved.") },
             );
-          }}
+          })}
         >
-          <Field label="Spreadsheet ID">
-            <input
+          <Field
+            label="Spreadsheet ID"
+            error={integrationForm.formState.errors.sheet?.message}
+          >
+            <Input
               required={enabled ?? config?.enabled ?? false}
               value={sheet ?? config?.spreadsheet_id ?? ""}
-              onChange={(e) => setSheet(e.target.value)}
+              {...integrationForm.register("sheet", {
+                onChange: (e) => setSheet(e.target.value),
+              })}
               pattern="[a-zA-Z0-9_-]*"
             />
           </Field>
-          <label className="check-row">
-            <input
-              type="checkbox"
-              checked={enabled ?? config?.enabled ?? false}
-              onChange={(e) => setEnabled(e.target.checked)}
+          <Label className="check-row">
+            <Controller
+              control={integrationForm.control}
+              name="enabled"
+              render={({ field }) => (
+                <Checkbox
+                  name={field.name}
+                  ref={field.ref}
+                  checked={field.value}
+                  onBlur={field.onBlur}
+                  onCheckedChange={(value) => {
+                    field.onChange(value === true);
+                    setEnabled(value === true);
+                  }}
+                />
+              )}
             />
             Enable Google Sheets synchronization
-          </label>
+          </Label>
           <div className="toolbar">
             <Button disabled={mutation.isPending}>Save configuration</Button>
             <Button
@@ -372,8 +475,8 @@ export function IntegrationsPage() {
             {feedback}
           </p>
         )}
-      </section>
-      <section className="panel">
+      </Card>
+      <Card className="panel">
         <div className="panel-heading">
           <h2>Synchronization history</h2>
         </div>
@@ -400,7 +503,7 @@ export function IntegrationsPage() {
         ) : (
           <Empty title="No sync runs yet" />
         )}
-      </section>
+      </Card>
     </>
   );
 }
@@ -413,44 +516,51 @@ export function AuditPage() {
         title="Audit log"
         description="Server-recorded actions. Audit records cannot be edited through the application."
       />
-      <section className="panel">
+      <Card className="panel">
         {logs.isPending ? (
           <Loading />
         ) : logs.error ? (
           <ErrorState error={logs.error} />
         ) : logs.data.length ? (
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Time (Colombo)</th>
-                  <th>Action</th>
-                  <th>Entity</th>
-                  <th>Actor</th>
-                  <th>Record</th>
-                </tr>
-              </thead>
-              <tbody>
+          <div
+            className="table-scroll"
+            tabIndex={0}
+            role="region"
+            aria-label="Audit log, scroll for more columns"
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Time (Colombo)</TableHead>
+                  <TableHead>Action</TableHead>
+                  <TableHead>Entity</TableHead>
+                  <TableHead>Actor</TableHead>
+                  <TableHead>Record</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {logs.data.map((l) => (
-                  <tr key={l.id}>
-                    <td>
+                  <TableRow key={l.id}>
+                    <TableCell>
                       {new Date(l.created_at).toLocaleString("en-GB", {
                         timeZone: "Asia/Colombo",
                       })}
-                    </td>
-                    <td>{l.action}</td>
-                    <td>{l.entity}</td>
-                    <td className="mono">{l.actor_id || "Deployment"}</td>
-                    <td className="mono">{l.record_id || "-"}</td>
-                  </tr>
+                    </TableCell>
+                    <TableCell>{l.action}</TableCell>
+                    <TableCell>{l.entity}</TableCell>
+                    <TableCell className="mono">
+                      {l.actor_id || "Deployment"}
+                    </TableCell>
+                    <TableCell className="mono">{l.record_id || "-"}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         ) : (
           <Empty title="No audit events" />
         )}
-      </section>
+      </Card>
       <Pager page={page} setPage={setPage} count={logs.data?.length || 0} />
     </>
   );
@@ -458,9 +568,17 @@ export function AuditPage() {
 export function NotificationsPage() {
   const { profile } = useAuth(),
     mine = profile!.role === "developer";
-  const logs = useRows("daily_work_logs", [
-      { column: "status", value: mine ? "revision_requested" : "submitted" },
-      ...(mine ? [{ column: "developer_id", value: profile!.id }] : []),
+  const tasks = useRows("tasks", [
+      { column: "status", value: "blocked" },
+      ...(mine
+        ? [
+            {
+              column: "assignee_id",
+              op: "assigned" as const,
+              value: profile!.id,
+            },
+          ]
+        : []),
     ]),
     leave = useRows("leave_requests", [
       { column: "status", value: mine ? "approved" : "pending" },
@@ -472,41 +590,31 @@ export function NotificationsPage() {
         title="Notifications"
         description="Current items requiring attention, based on records you can access."
       />
-      <section className="panel">
+      <Card className="panel">
         <div className="panel-heading">
-          <h2>
-            {mine ? "Updates returned for revision" : "Updates awaiting review"}
-          </h2>
+          <h2>Blocked tasks</h2>
         </div>
-        {logs.isPending ? (
+        {tasks.isPending ? (
           <Loading />
-        ) : logs.error ? (
-          <ErrorState error={logs.error} />
-        ) : logs.data.length ? (
-          logs.data.map((l) => (
+        ) : tasks.error ? (
+          <ErrorState error={tasks.error} />
+        ) : tasks.data.length ? (
+          tasks.data.map((l) => (
             <div className="list-row" key={l.id}>
               <div>
-                <strong>{dateLabel(l.work_date)}</strong>
-                <p>{l.review_note || "An update is ready for review."}</p>
+                <strong>{l.title}</strong>
+                <p>{l.blocker || "This task needs attention."}</p>
               </div>
               <Button asChild variant="secondary">
-                <a
-                  href={
-                    mine
-                      ? `/my-updates/${l.work_date}`
-                      : "/admin/evening-standup"
-                  }
-                >
-                  Open update
-                </a>
+                <a href={mine ? "/my-tasks" : "/admin/tasks"}>Open tasks</a>
               </Button>
             </div>
           ))
         ) : (
-          <Empty title="No updates need attention" />
+          <Empty title="No blocked tasks" />
         )}
-      </section>
-      <section className="panel">
+      </Card>
+      <Card className="panel">
         <div className="panel-heading">
           <h2>{mine ? "Approved leave" : "Leave awaiting review"}</h2>
         </div>
@@ -524,7 +632,7 @@ export function NotificationsPage() {
         ) : (
           <Empty title="No leave notifications" />
         )}
-      </section>
+      </Card>
     </>
   );
 }

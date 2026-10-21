@@ -1,3 +1,4 @@
+import { Button } from "./components/ui/button";
 import React, { lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -11,11 +12,13 @@ const Dashboard = lazy(() =>
 const TasksPage = lazy(() =>
   import("./features/tasks").then((m) => ({ default: m.TasksPage })),
 );
+const DeveloperTaskCalendar = lazy(() =>
+  import("./features/developer-calendar").then((m) => ({
+    default: m.DeveloperTaskCalendar,
+  })),
+);
 const StandupPage = lazy(() =>
   import("./features/standups").then((m) => ({ default: m.StandupPage })),
-);
-const UpdatesPage = lazy(() =>
-  import("./features/updates").then((m) => ({ default: m.UpdatesPage })),
 );
 const LeavePage = lazy(() =>
   import("./features/leave").then((m) => ({ default: m.LeavePage })),
@@ -66,12 +69,12 @@ class AppErrorBoundary extends React.Component<
       <main className="auth-center">
         <h1>The workspace could not open</h1>
         <p>Refresh the page to retry. Your saved records remain in Supabase.</p>
-        <button
+        <Button
           className="button button-primary"
           onClick={() => window.location.reload()}
         >
           Reload workspace
-        </button>
+        </Button>
       </main>
     ) : (
       this.props.children
@@ -104,10 +107,19 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="profile" element={<ProfilePage />} />
                   <Route path="notifications" element={<NotificationsPage />} />
-                  <Route path="my-tasks" element={<TasksPage mine />} />
-                  <Route path="my-updates" element={<UpdatesPage />} />
-                  <Route path="my-updates/:date" element={<UpdatesPage />} />
-                  <Route path="my-history" element={<UpdatesPage history />} />
+                  <Route path="my-tasks" element={<DeveloperTaskCalendar />} />
+                  <Route
+                    path="my-updates"
+                    element={<Navigate to="/my-tasks" replace />}
+                  />
+                  <Route
+                    path="my-updates/:date"
+                    element={<Navigate to="/my-tasks" replace />}
+                  />
+                  <Route
+                    path="my-history"
+                    element={<Navigate to="/my-tasks" replace />}
+                  />
                   <Route path="my-leave" element={<LeavePage />} />
                   <Route
                     path="admin/dashboard"

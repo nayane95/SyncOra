@@ -1,3 +1,8 @@
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "../components/ui/native-select";
+import { Card } from "../components/ui/card";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, parseISO, subDays } from "date-fns";
@@ -89,23 +94,23 @@ export function Analytics({ logs }: { logs: WorkLog[] }) {
     leaves.error ||
     updates.error;
   return (
-    <section className="panel">
+    <Card className="panel">
       <div className="panel-heading">
         <div>
           <h2>{title[view]}</h2>
           <p className="muted">Last seven days · authorized records</p>
         </div>
-        <select
+        <NativeSelect
           aria-label="Analytics view"
           value={view}
           onChange={(e) => setView(e.target.value)}
         >
           {Object.entries(title).map(([id, name]) => (
-            <option key={id} value={id}>
+            <NativeSelectOption key={id} value={id}>
               {name}
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
       </div>
       {error ? (
         <ErrorState error={error} />
@@ -158,6 +163,6 @@ export function Analytics({ logs }: { logs: WorkLog[] }) {
       ) : (
         <Empty title="No activity in this period" />
       )}
-    </section>
+    </Card>
   );
 }

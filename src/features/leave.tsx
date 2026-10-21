@@ -1,5 +1,24 @@
+import { Checkbox } from "../components/ui/checkbox";
+import { Textarea } from "../components/ui/textarea";
+import { Label } from "../components/ui/label";
+import { Input } from "../components/ui/input";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from "../components/ui/table";
+import { Card } from "../components/ui/card";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "../components/ui/native-select";
+import { useValidatedForm } from "../lib/use-validated-form";
+import { decisionSchema } from "../lib/form-schemas";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 import { Plus } from "lucide-react";
@@ -54,6 +73,7 @@ export function LeavePage({ admin = false }: { admin?: boolean }) {
       reason: "",
     },
   });
+  const decisionForm = useValidatedForm(decisionSchema, { note });
   const submit = form.handleSubmit(async (payload) => {
     await mutation
       .mutateAsync({ action: "leave", payload })
@@ -93,7 +113,7 @@ export function LeavePage({ admin = false }: { admin?: boolean }) {
         reassigned.
       </div>
       <div className="filters">
-        <select
+        <NativeSelect
           aria-label="Filter leave status"
           value={status}
           onChange={(e) => {
@@ -101,53 +121,58 @@ export function LeavePage({ admin = false }: { admin?: boolean }) {
             setPage(0);
           }}
         >
-          <option value="">All requests</option>
+          <NativeSelectOption value="">All requests</NativeSelectOption>
           {["pending", "approved", "rejected", "cancelled"].map((s) => (
-            <option key={s}>{s}</option>
+            <NativeSelectOption key={s}>{s}</NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
       </div>
-      <section className="panel">
+      <Card className="panel">
         {leaves.isPending ? (
           <Loading />
         ) : leaves.error ? (
           <ErrorState error={leaves.error} />
         ) : leaves.data.length ? (
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Team member</th>
-                  <th>Leave</th>
-                  <th>Dates</th>
-                  <th>Working days</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <div
+            className="table-scroll"
+            tabIndex={0}
+            role="region"
+            aria-label="Leave requests, scroll for more columns"
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Team member</TableHead>
+                  <TableHead>Leave</TableHead>
+                  <TableHead>Dates</TableHead>
+                  <TableHead>Working days</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {leaves.data.map((l) => (
-                  <tr key={l.id}>
-                    <td>
+                  <TableRow key={l.id}>
+                    <TableCell>
                       <strong>
                         {people.data?.find((p) => p.id === l.developer_id)
                           ?.name || "You"}
                       </strong>
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       {types.data?.find((t) => t.id === l.leave_type_id)
                         ?.name || "Leave"}
                       <small>{l.half_day ? "Half day" : "Full day"}</small>
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       {dateLabel(l.starts_on)}
                       <small>to {dateLabel(l.ends_on)}</small>
-                    </td>
-                    <td>{days(l)}</td>
-                    <td>
+                    </TableCell>
+                    <TableCell>{days(l)}</TableCell>
+                    <TableCell>
                       <Badge value={l.status} />
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell>
                       <Button
                         variant="ghost"
                         onClick={() => {
@@ -158,55 +183,70 @@ export function LeavePage({ admin = false }: { admin?: boolean }) {
                       >
                         View request
                       </Button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         ) : (
           <Empty title="No leave requests" />
         )}
-      </section>
+      </Card>
       <Pager page={page} setPage={setPage} count={leaves.data?.length || 0} />
       <LeaveCalendar />
       <Dialog open={open} onOpenChange={setOpen} title="Request leave">
-        <form onSubmit={submit} className="form-grid">
+        <form noValidate onSubmit={submit} className="form-grid">
           <Field
             label="Leave type"
             error={form.formState.errors.leave_type_id?.message}
           >
-            <select {...form.register("leave_type_id")}>
-              <option value="">Select type</option>
+            <NativeSelect {...form.register("leave_type_id")}>
+              <NativeSelectOption value="">Select type</NativeSelectOption>
               {types.data
                 ?.filter((t) => t.active)
                 .map((t) => (
-                  <option value={t.id} key={t.id}>
+                  <NativeSelectOption value={t.id} key={t.id}>
                     {t.name}
-                  </option>
+                  </NativeSelectOption>
                 ))}
-            </select>
+            </NativeSelect>
           </Field>
           <div className="form-row">
             <Field
               label="Start date"
               error={form.formState.errors.starts_on?.message}
             >
-              <input type="date" {...form.register("starts_on")} />
+              <Input type="date" {...form.register("starts_on")} />
             </Field>
             <Field
               label="End date"
               error={form.formState.errors.ends_on?.message}
             >
-              <input type="date" {...form.register("ends_on")} />
+              <Input type="date" {...form.register("ends_on")} />
             </Field>
           </div>
-          <label className="check-row">
-            <input type="checkbox" {...form.register("half_day")} />
+          <Label className="check-row">
+            <Controller
+              control={form.control}
+              name="half_day"
+              render={({ field }) => (
+                <Checkbox
+                  name={field.name}
+                  ref={field.ref}
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  onBlur={field.onBlur}
+                />
+              )}
+            />
             Half-day leave (one date only)
-          </label>
-          <Field label="Reason (optional)">
-            <textarea {...form.register("reason")} maxLength={2000} />
+          </Label>
+          <Field
+            label="Reason (optional)"
+            error={form.formState.errors.reason?.message}
+          >
+            <Textarea {...form.register("reason")} maxLength={2000} />
           </Field>
           {mutation.error && <ErrorState error={mutation.error} />}
           <div className="dialog-actions">
@@ -246,10 +286,15 @@ export function LeavePage({ admin = false }: { admin?: boolean }) {
               decision.status === "pending" &&
               decision.developer_id !== profile!.id && (
                 <>
-                  <Field label="Decision note">
-                    <textarea
+                  <Field
+                    label="Decision note"
+                    error={decisionForm.formState.errors.note?.message}
+                  >
+                    <Textarea
                       value={note}
-                      onChange={(e) => setNote(e.target.value)}
+                      {...decisionForm.register("note", {
+                        onChange: (e) => setNote(e.target.value),
+                      })}
                     />
                   </Field>
                   <div className="dialog-actions">
@@ -258,7 +303,7 @@ export function LeavePage({ admin = false }: { admin?: boolean }) {
                         variant={s === "approved" ? "default" : "secondary"}
                         disabled={mutation.isPending}
                         key={s}
-                        onClick={() =>
+                        onClick={decisionForm.handleSubmit(() =>
                           mutation.mutate(
                             {
                               action: "leave_decision",
@@ -269,8 +314,8 @@ export function LeavePage({ admin = false }: { admin?: boolean }) {
                               },
                             },
                             { onSuccess: () => setDecision(undefined) },
-                          )
-                        }
+                          ),
+                        )}
                       >
                         {s === "approved" ? "Approve" : "Reject"}
                       </Button>

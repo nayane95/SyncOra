@@ -11,6 +11,7 @@ import {
   workingDaysBetween,
   localDate,
   dateLabel,
+  currentWorkWeek,
 } from "./business";
 import {
   csvCell,
@@ -222,4 +223,19 @@ describe("tasks, summaries and reporting", () => {
     const buffer = await wb.xlsx.writeBuffer();
     expect(buffer.byteLength).toBeGreaterThan(1000);
   });
+});
+
+it("uses Monday to Sunday weeks with explicit Sri Lanka time boundaries", () => {
+  expect(currentWorkWeek("2026-10-18")).toEqual([
+    "2026-10-12T00:00:00+05:30",
+    "2026-10-19T00:00:00+05:30",
+  ]);
+  expect(currentWorkWeek("2026-10-19")).toEqual([
+    "2026-10-19T00:00:00+05:30",
+    "2026-10-26T00:00:00+05:30",
+  ]);
+  expect(currentWorkWeek("2027-01-01")).toEqual([
+    "2026-12-28T00:00:00+05:30",
+    "2027-01-04T00:00:00+05:30",
+  ]);
 });

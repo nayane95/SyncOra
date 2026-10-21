@@ -1,3 +1,11 @@
+import { gsap } from "gsap";
+import { useLayoutEffect, useRef } from "react";
+import { Skeleton } from "./ui/skeleton";
+import { Badge as StatusBadge } from "./ui/badge";
+import { Avatar as UserAvatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Alert } from "./ui/alert";
+import { Card } from "./ui/card";
+import { Label } from "./ui/label";
 import { cloneElement, isValidElement, useId, type ReactNode } from "react";
 import { AlertCircle, Inbox, LoaderCircle } from "lucide-react";
 import { Button } from "./ui/button";
@@ -14,8 +22,21 @@ export function PageHeader({
   description?: string;
   actions?: ReactNode;
 }) {
+  const heading = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const media = gsap.matchMedia();
+    media.add("(prefers-reduced-motion: no-preference)", () => {
+      gsap.from(heading.current, {
+        y: 8,
+        duration: 0.32,
+        ease: "power2.out",
+        clearProps: "transform",
+      });
+    });
+    return () => media.revert();
+  }, [title]);
   return (
-    <div className="page-heading">
+    <div ref={heading} className="page-heading">
       <div>
         <p className="eyebrow">{eyebrow || "Team workspace"}</p>
         <h1>{title}</h1>
@@ -47,6 +68,10 @@ export function Loading() {
     <div className="empty" role="status">
       <LoaderCircle className="spin" size={24} />
       Loading workspace…
+      <div className="loading-lines" aria-hidden="true">
+        <Skeleton className="h-3 w-48" />
+        <Skeleton className="h-3 w-32" />
+      </div>
     </div>
   );
 }
@@ -58,7 +83,7 @@ export function ErrorState({
   retry?: () => void;
 }) {
   return (
-    <div className="error" role="alert">
+    <Alert variant="destructive" className="error">
       <AlertCircle size={19} />
       <div>
         {message(error)}
@@ -68,22 +93,49 @@ export function ErrorState({
           </Button>
         )}
       </div>
-    </div>
+    </Alert>
   );
 }
 export function Badge({ value }: { value: string }) {
-  return <span className={`badge badge-${value}`}>{label(value)}</span>;
-}
-export function Avatar({ name }: { name: string }) {
   return (
-    <span className="avatar" aria-hidden="true">
-      {name
-        .split(" ")
-        .map((n) => n[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase()}
-    </span>
+    <StatusBadge variant="outline" className={`badge badge-${value}`}>
+      {label(value)}
+    </StatusBadge>
+  );
+}
+const identityTones = ["violet", "blue", "rose", "cyan"] as const;
+export function ProjectTag({ id, name }: { id: string; name: string }) {
+  const tone =
+    identityTones[(id.charCodeAt(id.length - 1) || 0) % identityTones.length];
+  return (
+    <StatusBadge variant="secondary" className={`project-tag tone-${tone}`}>
+      {name}
+    </StatusBadge>
+  );
+}
+export function Avatar({ name, src }: { name: string; src?: string }) {
+  return (
+    <UserAvatar
+      className={`avatar tone-${identityTones[(name.charCodeAt(0) || 0) % identityTones.length]}`}
+      aria-hidden="true"
+    >
+      {src?.startsWith("https://") && (
+        <AvatarImage
+          src={src}
+          alt=""
+          referrerPolicy="no-referrer"
+          className="object-cover"
+        />
+      )}
+      <AvatarFallback>
+        {name
+          .split(" ")
+          .map((n) => n[0])
+          .slice(0, 2)
+          .join("")
+          .toUpperCase()}
+      </AvatarFallback>
+    </UserAvatar>
   );
 }
 export function Field({
@@ -108,7 +160,7 @@ export function Field({
       })
     : children;
   return (
-    <label className="field">
+    <Label className="field">
       <span id={id}>{labelText}</span>
       {control}
       {error && (
@@ -116,7 +168,7 @@ export function Field({
           {error}
         </span>
       )}
-    </label>
+    </Label>
   );
 }
 export function Metrics({
@@ -127,11 +179,11 @@ export function Metrics({
   return (
     <div className="metrics">
       {items.map((i) => (
-        <div className="metric" key={i.label}>
+        <Card className="metric" key={i.label}>
           <p className="muted">{i.label}</p>
           <strong>{i.value}</strong>
           {i.note && <small>{i.note}</small>}
-        </div>
+        </Card>
       ))}
     </div>
   );

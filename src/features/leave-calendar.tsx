@@ -1,3 +1,13 @@
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from "../components/ui/table";
+import { Input } from "../components/ui/input";
+import { Card } from "../components/ui/card";
 import { useState } from "react";
 import {
   eachDayOfInterval,
@@ -31,7 +41,7 @@ export function LeaveCalendar() {
     ];
   while (cells.length % 7) cells.push(null);
   return (
-    <section className="panel">
+    <Card className="panel">
       <div className="panel-heading">
         <div>
           <h2>Availability calendar</h2>
@@ -40,7 +50,7 @@ export function LeaveCalendar() {
           </p>
         </div>
         <Field label="Calendar month">
-          <input
+          <Input
             type="month"
             value={month}
             onChange={(e) => {
@@ -52,28 +62,28 @@ export function LeaveCalendar() {
       </div>
       {leaves.isPending ? (
         <Loading />
-      ) : leaves.error||holidays.error||settings.error ? (
-        <ErrorState error={leaves.error||holidays.error||settings.error} />
+      ) : leaves.error || holidays.error || settings.error ? (
+        <ErrorState error={leaves.error || holidays.error || settings.error} />
       ) : (
         <div className="calendar-wrap">
-          <table className="leave-calendar">
+          <Table className="leave-calendar">
             <caption className="sr-only">
               Approved leave in {format(base, "MMMM yyyy")}
             </caption>
-            <thead>
-              <tr>
+            <TableHeader>
+              <TableRow>
                 {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-                  <th scope="col" key={d}>
+                  <TableHead scope="col" key={d}>
                     {d}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {Array.from({ length: cells.length / 7 }, (_, week) => (
-                <tr key={week}>
+                <TableRow key={week}>
                   {cells.slice(week * 7, week * 7 + 7).map((d, i) => {
-                    if (!d) return <td key={i} />;
+                    if (!d) return <TableCell key={i} />;
                     const date = format(d, "yyyy-MM-dd"),
                       away = leaves.data
                         .filter((l) => l.starts_on <= date && l.ends_on >= date)
@@ -84,7 +94,10 @@ export function LeaveCalendar() {
                         holidays.data?.map((h) => h.holiday_date),
                       );
                     return (
-                      <td className={working ? "" : "nonworking"} key={date}>
+                      <TableCell
+                        className={working ? "" : "nonworking"}
+                        key={date}
+                      >
                         <time dateTime={date}>{d.getDate()}</time>
                         {working && away > 0 && (
                           <span aria-label={`${away} approved leave days`}>
@@ -94,15 +107,15 @@ export function LeaveCalendar() {
                         {holidays.data?.some(
                           (h) => h.holiday_date === date,
                         ) && <small>Holiday</small>}
-                      </td>
+                      </TableCell>
                     );
                   })}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
-    </section>
+    </Card>
   );
 }

@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Sun,
   Moon,
   ListTodo,
-  ClipboardCheck,
   Users,
   FolderKanban,
   CalendarDays,
@@ -17,16 +17,20 @@ import {
   LogOut,
   Menu,
   History,
+  RefreshCw,
   User,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./auth";
 import { supabase } from "../lib/supabase";
-import { today, dateLabel } from "../lib/business";
+import { dateLabel } from "../lib/business";
+import { useBusinessDate } from "../lib/use-business-date";
 import { Avatar } from "../components/shared";
 import { Button } from "../components/ui/button";
 export function Shell() {
-  const { profile } = useAuth();
+  const { profile, avatarUrl } = useAuth();
+  const businessDate = useBusinessDate();
+  const reducedMotion = useReducedMotion();
   const [menu, setMenu] = useState(false),
     [dark, setDark] = useState(
       () => localStorage.getItem("syncora-theme") === "dark",
@@ -48,13 +52,7 @@ export function Shell() {
         { event: "*", schema: "public", table: "tasks" },
         () => {
           void cache.invalidateQueries({ queryKey: ["tasks"] });
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "daily_work_logs" },
-        () => {
-          void cache.invalidateQueries({ queryKey: ["daily_work_logs"] });
+          void cache.invalidateQueries({ queryKey: ["task_status_history"] });
         },
       )
       .on(
@@ -99,9 +97,7 @@ export function Shell() {
     : [
         ["Overview", "/dashboard", LayoutDashboard],
         ["My tasks", "/my-tasks", ListTodo],
-        ["Daily updates", "/my-updates", ClipboardCheck],
         ["My leave", "/my-leave", CalendarDays],
-        ["Work history", "/my-history", History],
       ];
   return (
     <div className="app-shell">
@@ -110,11 +106,14 @@ export function Shell() {
       </a>
       <aside className={`sidebar ${menu ? "is-open" : ""}`}>
         <NavLink className="wordmark" to="/dashboard">
-          Sync<span>Ora</span>
+          <RefreshCw className="brand-symbol" aria-hidden="true" />
+          <span className="brand-name">
+            Sync<span>Ora</span>
+          </span>
         </NavLink>
         <div className="workspace-label">
           <span className="workspace-dot" />
-          Team workspace
+          Blissora workspace
         </div>
         <p className="nav-heading">Workspace</p>
         <nav aria-label="Workspace navigation">
@@ -129,18 +128,36 @@ export function Shell() {
                   isActive ? "nav-link active" : "nav-link"
                 }
               >
-                <Glyph size={18} />
-                {String(name)}
+                {({ isActive }) => (
+                  <>
+                    {isActive && (
+                      <motion.span
+                        className="nav-active-surface"
+                        layoutId={
+                          reducedMotion ? undefined : "workspace-navigation"
+                        }
+                        transition={{
+                          type: "spring",
+                          stiffness: 420,
+                          damping: 36,
+                        }}
+                        aria-hidden="true"
+                      />
+                    )}
+                    <Glyph size={18} />
+                    <span>{String(name)}</span>
+                  </>
+                )}
               </NavLink>
             );
           })}
         </nav>
         <div className="sidebar-bottom">
           <div className="daily-rhythm">
-            <Sun size={17} />
+            <FolderKanban size={17} />
             <div>
-              <strong>One day, one shared plan</strong>
-              <p>Pick up where you left off.</p>
+              <strong>Built together, delivered together</strong>
+              <p>A workspace by Blissora.</p>
             </div>
           </div>
           <NavLink
@@ -148,7 +165,7 @@ export function Shell() {
             className="user-card"
             onClick={() => setMenu(false)}
           >
-            <Avatar name={profile!.name} />
+            <Avatar name={profile!.name} src={avatarUrl} />
             <span>
               <strong>{profile!.name}</strong>
               <small>{profile!.role.replaceAll("_", " ")}</small>
@@ -157,7 +174,8 @@ export function Shell() {
         </div>
       </aside>
       {menu && (
-        <button
+        <Button
+          variant="ghost"
           className="menu-backdrop"
           aria-label="Close navigation"
           onClick={() => setMenu(false)}
@@ -182,7 +200,7 @@ export function Shell() {
           </div>
           <div className="toolbar">
             <span className="top-date">
-              {dateLabel(today())} <small>Colombo</small>
+              {dateLabel(businessDate)} <small>Colombo</small>
             </span>
             <Button
               variant="ghost"
@@ -213,7 +231,9 @@ export function Shell() {
           <Outlet />
         </main>
         <footer className="app-footer">
-          <span>SyncOra</span>
+          <span>
+            SyncOra <span className="muted">by Blissora</span>
+          </span>
           <span>Plan. Progress. Carry forward.</span>
         </footer>
       </div>

@@ -11,3 +11,15 @@
 Test denied consent, expired/missing verifier, a rejected account, a pending account, sign out, and an approved login. OAuth errors render a retry path. The pending screen checks approval through profile updates and a 30-second refresh.
 
 References: [Supabase Google login](https://supabase.com/docs/guides/auth/social-login/auth-google) and [PKCE sessions](https://supabase.com/docs/guides/auth/sessions/pkce-flow).
+
+## Production URL configuration
+
+For the deployed SyncOra site, open Supabase **Authentication → URL Configuration**:
+
+- **Site URL:** `https://syncora-bliss.netlify.app`
+- **Redirect URLs:** add `https://syncora-bliss.netlify.app/auth/callback`.
+- Retain `http://localhost:5173/auth/callback` for local development.
+
+Save both settings, then start a fresh Google sign-in from the production login page. Do not reuse a previous callback code. If Supabase rejects the requested redirect URL, authentication falls back to the Site URL; leaving that at `http://localhost:3000` causes production sign-in to return to localhost. See [Supabase redirect URL configuration](https://supabase.com/docs/guides/auth/redirect-urls).
+
+Google Cloud's authorized redirect URI remains the Supabase `/auth/v1/callback` URL from step 2, rather than the Netlify frontend callback. Hosted Supabase settings are separate from the repository's local `supabase/config.toml`.

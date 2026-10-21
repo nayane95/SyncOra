@@ -1,40 +1,58 @@
-import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
 import type { ReactNode } from "react";
+import {
+  Dialog as DialogRoot,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "./dialog-primitives";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "./sheet";
+
 export function Dialog({
   open,
   onOpenChange,
   title,
   description,
   children,
+  side = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
   children: ReactNode;
+  side?: boolean;
 }) {
+  const caption =
+    description ||
+    "Complete the fields below. Changes are saved only when you confirm.";
+  if (side)
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="task-detail-sheet">
+          <SheetHeader>
+            <SheetTitle>{title}</SheetTitle>
+            <SheetDescription>{caption}</SheetDescription>
+          </SheetHeader>
+          <div className="sheet-body">{children}</div>
+        </SheetContent>
+      </Sheet>
+    );
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="dialog-overlay" />
-        <DialogPrimitive.Content className="dialog-content">
-          <DialogPrimitive.Title className="dialog-title">
-            {title}
-          </DialogPrimitive.Title>
-          <DialogPrimitive.Description className="muted">
-            {description ||
-              "Complete the fields below. Changes are saved only when you confirm."}
-          </DialogPrimitive.Description>
-          <DialogPrimitive.Close
-            className="dialog-close"
-            aria-label="Close dialog"
-          >
-            <X size={20} />
-          </DialogPrimitive.Close>
-          {children}
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+    <DialogRoot open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="workspace-dialog">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{caption}</DialogDescription>
+        </DialogHeader>
+        {children}
+      </DialogContent>
+    </DialogRoot>
   );
 }
