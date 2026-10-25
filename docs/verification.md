@@ -488,3 +488,7 @@ After the operator supplied secret environment credentials, ran the production s
 ## 25 October 2026 — organized login form
 
 Fixed shrink-to-content email form sizing by stretching login panel children and making the form full width. Google, email/password inputs and email submit now share aligned edges. Added a quiet ruled email divider, 48px input heights, useful placeholders and concise intro copy. Retained shared primitives, validation, Google flow and Hairline components. Updated DESIGN.md. Build/lint and 64 app tests passed; two browser checks verified Google handoff, email failure/validation, equal control widths and no overflow at 390px/1440px. Inspected both responsive screenshots. Not deployed.
+
+## 25 October 2026 — remove GitHub Actions
+
+Removed the Application checks workflow (.github/workflows/checks.yml) at the operator’s request. Verified no YAML workflows remain. Local npm build/lint/test commands remain available. No application code changed; tests were not rerun for this workflow-only removal. The change must be pushed to stop future GitHub runs; existing run history is unchanged.
