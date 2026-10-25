@@ -462,3 +462,11 @@ Added public/favicon.svg using the existing Lucide sync mark and Blissora green 
 ## 21 October 2026 — pre-commit verification
 
 Production build, ESLint and all 61 Vitest tests across nine files passed. git diff --check passed. Build retains large-chunk and upstream Zod annotation warnings. Reviewed tracked/untracked files; environment secrets and generated build/test output remain ignored. Secret-pattern scan only matched runtime-generated PEM test data in an unchanged existing test. Browser workflows and live production OAuth were not rerun for this commit.
+
+## 25 October 2026 — realtime conversations and task comments
+
+Replaced the shell's three-table subscription with a shared lifecycle hook covering task comments, activity/history, contributors, standup notes/assignments, daily updates/logs, tasks and leave. Matching React Query keys refresh on remote events; every successful subscription refreshes data to recover changes missed offline. Channels are removed on user changes/unmount. No local comment draft is reset and authorization policies remain unchanged. Added an idempotent publication migration.
+
+Production build and ESLint passed; all 63 tests across ten files passed. New tests exercise incoming conversation/activity callbacks, reconnect catch-up, user changes/cleanup, publication membership/idempotency and retained comment RLS. Applied the migration to the configured Supabase database with certificate-verified TLS and verified all conversation/activity tables are published. No row data or migration-history changes. Build retains existing large-bundle and upstream Zod annotation warnings. Frontend not deployed; a live two-browser comment delivery check has not been performed.
+
+Deployment rechecked on request: reran the idempotent realtime migration and verified all nine subscribed workspace tables belong to supabase_realtime with RLS enabled. No row data or migration-history bookkeeping changed.

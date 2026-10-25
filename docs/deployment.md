@@ -88,3 +88,9 @@ The fifth migration, `202610200005_task_based_memberships.sql`, removes the reti
 `202610210002_task_search.sql` enables pg_trgm, adds full-text/trigram indexes and the security-invoker `search_tasks` RPC. Apply this migration before deploying the task-register frontend; no Algolia service or environment variables are required. Search and exact pagination counts retain existing task RLS. The RPC accepts only supported filters, 200-character queries, nonnegative pages and limits 10/25/50/100. Indexes update automatically when tasks change.
 
 Applied to the configured Supabase project on 21 October 2026 using verified TLS. An authenticated read-only smoke check returned 10 rows out of 62 authorized tasks; anonymous RPC execution is denied. This application used the migration SQL directly; it did not change the separate migration-history table.
+
+## Realtime conversations
+
+`202610250001_realtime_conversations.sql` adds task comments, task status history, contributors, standup assignments and daily task updates to the existing realtime publication. It is safe to rerun and preserves RLS. The workspace subscribes to these tables alongside tasks, standup sessions/notes, daily work logs and leave requests. Incoming events invalidate matching authorized queries; subscribing/reconnecting refreshes them to recover missed changes. Sign-out/user changes remove the previous subscription.
+
+Applied and verified on the configured Supabase project on 25 October 2026 using certificate-verified TLS. No row data or migration-history bookkeeping changed. Deploy the frontend to enable the new subscriptions. Verify with two authorized browsers: post a comment in one and observe it in the other; disconnect/reconnect the reader and check missed comments appear.

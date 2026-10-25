@@ -72,6 +72,12 @@ beforeAll(async () => {
   await db.exec(
     readFileSync("supabase/migrations/202610210002_task_search.sql", "utf8"),
   );
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/202610250001_realtime_conversations.sql",
+      "utf8",
+    ),
+  );
   for (const [id, name] of [
     [root, "Root"],
     [lead, "Lead"],
@@ -1036,4 +1042,32 @@ it("searches tasks with ranked full text, prefixes, typos, filters and RLS-safe 
   expect((await search("authentication")).total).toBe(0);
   await db.exec("reset role; set role anon");
   await expect(search("authentication")).rejects.toThrow(/permission denied/);
+});
+
+it("publishes conversations and activity without weakening comment access", async () => {
+  const published = await db.query<{ tablename: string }>(
+    "select tablename from pg_publication_tables where pubname = 'supabase_realtime'",
+  );
+  expect(published.rows.map((row) => row.tablename)).toEqual(
+    expect.arrayContaining([
+      "task_comments",
+      "task_status_history",
+      "task_assignees",
+      "standup_sessions",
+      "standup_assignments",
+      "daily_work_logs",
+      "daily_task_updates",
+    ]),
+  );
+  await db.exec("reset role");
+  const secured = await db.query<{ relrowsecurity: boolean }>(
+    "select relrowsecurity from pg_class where oid = 'public.task_comments'::regclass",
+  );
+  expect(secured.rows[0].relrowsecurity).toBe(true);
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/202610250001_realtime_conversations.sql",
+      "utf8",
+    ),
+  );
 });

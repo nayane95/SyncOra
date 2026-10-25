@@ -20,9 +20,9 @@ import {
   RefreshCw,
   User,
 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./auth";
 import { supabase } from "../lib/supabase";
+import { useWorkspaceRealtime } from "../lib/use-workspace-realtime";
 import { dateLabel } from "../lib/business";
 import { useBusinessDate } from "../lib/use-business-date";
 import { Avatar } from "../components/shared";
@@ -35,45 +35,14 @@ export function Shell() {
     [dark, setDark] = useState(
       () => localStorage.getItem("syncora-theme") === "dark",
     );
-  const location = useLocation(),
-    cache = useQueryClient();
+  const location = useLocation();
+  useWorkspaceRealtime(profile?.id);
   const admin = profile?.role !== "developer",
     superAdmin = profile?.role === "super_admin";
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
     localStorage.setItem("syncora-theme", dark ? "dark" : "light");
   }, [dark]);
-  useEffect(() => {
-    if (!supabase || !profile) return;
-    const channel = supabase
-      .channel("workspace")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "tasks" },
-        () => {
-          void cache.invalidateQueries({ queryKey: ["tasks"] });
-          void cache.invalidateQueries({ queryKey: ["task_status_history"] });
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "leave_requests" },
-        () => {
-          void cache.invalidateQueries({ queryKey: ["leave_requests"] });
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "standup_sessions" },
-        () => {
-          void cache.invalidateQueries({ queryKey: ["standup_sessions"] });
-        },
-      )
-      .subscribe();
-    return () => {
-      void supabase!.removeChannel(channel);
-    };
-  }, [profile, cache]);
   const links = admin
     ? [
         ["Overview", "/admin/dashboard", LayoutDashboard],
