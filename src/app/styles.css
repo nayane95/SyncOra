@@ -3334,6 +3334,7 @@ h3 {
   padding: clamp(2rem, 5vw, 4rem);
 }
 .auth-signin-region .auth-panel[data-slot="card"] {
+  align-items: stretch;
   width: 100%;
   max-width: 420px;
   margin: 0;

@@ -15,6 +15,7 @@ import type { Session } from "@supabase/supabase-js";
 import { Navigate, useLocation, Link } from "react-router-dom";
 import { supabase, configured } from "../lib/supabase";
 import { message } from "../lib/api";
+import { EmailLogin } from "../components/email-login";
 import { Button } from "../components/ui/button";
 import { Loading, ErrorState } from "../components/shared";
 import type { Profile } from "../types/database";
@@ -246,7 +247,7 @@ export function Login() {
           </h2>
           <p className="muted">
             {configured
-              ? "Sign in with your work Google account to continue."
+              ? "Use your work account to continue."
               : "Set up Supabase to enable secure sign-in and persistent team data."}
           </p>
           {configured ? (
@@ -284,6 +285,7 @@ export function Login() {
               </p>
             </div>
           )}
+          {configured && <EmailLogin disabled={busy} />}
           {error && <ErrorState error={new Error(error)} />}
           <p className="auth-note">
             <ShieldCheck size={16} aria-hidden="true" />

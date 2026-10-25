@@ -470,3 +470,21 @@ Replaced the shell's three-table subscription with a shared lifecycle hook cover
 Production build and ESLint passed; all 63 tests across ten files passed. New tests exercise incoming conversation/activity callbacks, reconnect catch-up, user changes/cleanup, publication membership/idempotency and retained comment RLS. Applied the migration to the configured Supabase database with certificate-verified TLS and verified all conversation/activity tables are published. No row data or migration-history changes. Build retains existing large-bundle and upstream Zod annotation warnings. Frontend not deployed; a live two-browser comment delivery check has not been performed.
 
 Deployment rechecked on request: reran the idempotent realtime migration and verified all nine subscribed workspace tables belong to supabase_realtime with RLS enabled. No row data or migration-history bookkeeping changed.
+
+## 25 October 2026 — email login and local Super Admin seed
+
+Added email/password login alongside Google with shared form primitives, Zod/React Hook Form inline errors, password autocomplete/masking, pending state and generic authentication failures. Email sessions use the existing profile approval and role guards. Added npm run seed:admin: local-only Admin Auth API account creation for super-admin@example.com followed by trusted profile activation. Password and local service-role key must come from secret environment variables; no credentials or automatic production administrator are shipped. Existing users are not overwritten.
+
+Build and lint passed; 64 app tests passed. Two seed tests verify rejection of remote targets/missing passwords and confirmed account creation plus exact profile activation using a mock local server. Browser tests passed for Google OAuth handoff and email validation/failed login/no horizontal overflow at 390px and 1440px. No actual seed account was created because a local instance/key/password have not been supplied. No production account, provider setting or deployment changed.
+
+### Production seed support
+
+Extended the trusted seed command with explicit --production opt-in and HTTPS-origin validation. Production can use the configured VITE_SUPABASE_URL, while privileged credentials stay exclusively in SUPABASE_SERVICE_ROLE_KEY and SEED_ADMIN_PASSWORD. Updated deployment instructions and empty environment placeholders. ESLint and all three seed tests passed (local mock account creation, credential validation, remote opt-in/HTTPS checks). No production user created: the admin key and seed password are absent from the local environment.
+
+### Production Super Admin created — 25 October 2026
+
+After the operator supplied secret environment credentials, ran the production seed for super-admin@example.com. Verified email/password authentication using the frontend publishable key and read back the account's active super_admin profile through its authenticated session. Signed out that verification session. No credentials were printed or added to source. The deployed frontend email form has not been verified.
+
+## 25 October 2026 — organized login form
+
+Fixed shrink-to-content email form sizing by stretching login panel children and making the form full width. Google, email/password inputs and email submit now share aligned edges. Added a quiet ruled email divider, 48px input heights, useful placeholders and concise intro copy. Retained shared primitives, validation, Google flow and Hairline components. Updated DESIGN.md. Build/lint and 64 app tests passed; two browser checks verified Google handoff, email failure/validation, equal control widths and no overflow at 390px/1440px. Inspected both responsive screenshots. Not deployed.

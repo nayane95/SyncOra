@@ -3298,3 +3298,60 @@ test("task register paginates filtered results and opens cmdk task search", asyn
     }
   }
 });
+
+test("email login validates inline and fits phone and desktop", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in with email" }).click();
+  await expect(page.getByText("Enter a valid email address")).toBeVisible();
+  await expect(page.getByText("Enter your password")).toBeVisible();
+  await page
+    .getByLabel("Email", { exact: true })
+    .fill("super-admin@example.com");
+  await page.getByLabel("Password", { exact: true }).fill("test-password-only");
+  await page.route("**/auth/v1/token?grant_type=password", async (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      email: "super-admin@example.com",
+      password: "test-password-only",
+    });
+    await route.fulfill({
+      status: 400,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: "invalid_grant",
+        error_description: "Invalid login credentials",
+      }),
+    });
+  });
+  await page.getByRole("button", { name: "Sign in with email" }).click();
+  await expect(page.getByText(/Unable to sign in/)).toBeVisible();
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const google = await page
+      .getByRole("button", { name: "Continue with Google" })
+      .boundingBox();
+    for (const control of [
+      page.getByLabel("Email", { exact: true }),
+      page.getByLabel("Password", { exact: true }),
+      page.getByRole("button", { name: "Sign in with email" }),
+    ]) {
+      const box = await control.boundingBox();
+      expect(Math.abs(box!.width - google!.width)).toBeLessThan(2);
+      expect(Math.abs(box!.x - google!.x)).toBeLessThan(2);
+    }
+    await page.screenshot({
+      path: `/tmp/syncora-login-organized-${width}.png`,
+      fullPage: true,
+    });
+    await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute(
+      "type",
+      "password",
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
+});

@@ -150,3 +150,7 @@ Use Supabase/PostgreSQL for task search; no external Algolia index or credential
 The register defaults to 10 rows and offers 10/25/50/100. Show exact result ranges, page totals and Previous/Next; reset to page one and clear bulk selection when search, filters or limit change. Clamp pages after results shrink. Fetch only the displayed page; do not download all tasks to paginate locally. Developer Today boards retain their carry-forward behavior.
 
 Use cmdk inside the existing shadcn Dialog for the register's quick search, opened by its visible button or Cmd/Ctrl+K. Show up to ten authorized previews with task IDs/status and an action to apply the query to the paginated register. Selection opens the existing task drawer. Keep loading/error/no-result feedback, arrow/Enter/Escape support, focus restoration and theme/mobile styling.
+
+Email sign-in uses the shared Input, Field and Button components with Zod/React Hook Form inline validation. Keep Google sign-in available above the email form, use username/current-password autocomplete, mask passwords and show generic authentication failures. Never display seed credentials on the login page. Email sessions use the same approval and role guards as Google.
+
+The login form uses one aligned 420px column: stretch the panel children and keep the email form full width. Separate Google and email sign-in with quiet horizontal rules around a short label; use 48px email controls and consistent field spacing. Keep the trust note and Hairline illustration beneath the form.

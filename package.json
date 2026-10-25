@@ -15,7 +15,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "seed:admin": "node scripts/seed-super-admin.mjs",
+    "test:seed": "node --test scripts/seed-super-admin.test.mjs"
   },
   "dependencies": {
     "@dnd-kit/react": "^0.5.1",

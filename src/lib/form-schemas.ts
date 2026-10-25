@@ -88,3 +88,8 @@ export const summarySchema = z
     path: ["date"],
     message: "Choose a summary date up to today",
   });
+
+export const emailLoginSchema = z.object({
+  email: z.string().trim().pipe(z.email("Enter a valid email address")),
+  password: z.string().min(1, "Enter your password"),
+});
